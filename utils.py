@@ -2,7 +2,7 @@
 import sys
 import logging
 import datetime
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 
 def init_log(log_path="", level=logging.INFO) -> None:
@@ -48,3 +48,17 @@ def wrap_log_ts_async(func: Callable) -> None:
 def lru_pop(*arrays: list, max_length: int=10) -> None:
     for array in arrays:
         while len(array) > max_length: array.pop(0)
+
+
+class IterCount(Iterator):
+    def __init__(self, start: int, step: int=1) -> None:
+        self.val = start
+        self.step = step
+
+    def __next__(self):
+        self.val += self.step
+        return self.val
+    
+    def __repr__(self) -> str:
+        return self.val
+
