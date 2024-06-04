@@ -1,8 +1,12 @@
-
 import sys
 import logging
 import datetime
 from collections.abc import Callable, Iterator
+from functools import wraps
+import traceback
+import time
+import asyncio
+import string
 
 
 def init_log(log_path="", level=logging.INFO) -> None:
@@ -28,6 +32,7 @@ def now_ts() -> float:
 
 
 def wrap_log_ts(func: Callable) -> None:
+    @wraps(func)
     def inner(*args, **kwargs):
         ts = now_ts()
         re = func(*args, **kwargs)
@@ -37,6 +42,7 @@ def wrap_log_ts(func: Callable) -> None:
 
 
 def wrap_log_ts_async(func: Callable) -> None:
+    @wraps(func)
     async def inner(*args, **kwargs):
         ts = now_ts()
         re = await func(*args, **kwargs)
@@ -62,3 +68,47 @@ class IterCount(Iterator):
     def __repr__(self) -> str:
         return self.val
 
+
+def retry(max_retries: int=3, delay: int=2, trace_print: bool=False, is_raise=True):
+    def decorator(func: Callable):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    print(f"Attempt {attempt} failed: {e}")
+                    if trace_print: traceback.print_exc()
+                    if attempt < max_retries:
+                        print(f"Waiting {delay} seconds before retrying...")
+                        time.sleep(delay)
+                    else:
+                        print("All retries failed.")
+                        if is_raise: raise
+        return wrapper
+    return decorator
+
+
+def async_retry(max_retries: int=3, delay: int=2, trace_print: bool=False, is_raise=True):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    print(f"Attempt {attempt} failed: {e}")
+                    if trace_print: traceback.print_exc()
+                    if attempt < max_retries:
+                        print(f"Waiting {delay} seconds before retrying...")
+                        await asyncio.sleep(delay)
+                    else:
+                        print("All retries failed.")
+                        if is_raise: raise
+        return wrapper
+    return decorator
+
+
+def simple_template(sth: str, **kwargs) -> str:
+    template = string.Template(sth)
+    return template.safe_substitute(**kwargs)
